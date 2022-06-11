@@ -148,10 +148,10 @@ def integrales(distr1,eDistr1,distrRef,eDistrRef,nbins,Dx):
         m += 1
     
     S = energ - kld
-    eS = eEnerg + eKld
     
     eKld = np.sqrt(eKld)*Dx
     eEnerg = np.sqrt(eEnerg)*Dx
+    eS = eEnerg + eKld
     
     return kld,eKld,energ,eEnerg,S,eS
 
@@ -173,7 +173,7 @@ def temps(sigma,kappa,nbinsT,title,option):
     xs = np.linspace(temp1D.min(),temp1D.max(),num=200)
     plt.plot(xs,np.exp(-np.power(xs-tempI,2)/(2*eTempI**2)) / (np.sqrt(2*3.14159)*eTempI))
     plt.xlabel("Effective temperature (K)")
-    plt.title("Histogram of " + title + "temperatures (" + option + ")")
+    plt.title("Histogram of " + title + " temperatures (" + option + ")")
     plt.savefig(dir_name + 'hist_' + title + '_' + option + '.png')
     
     return tempI,eTempI
@@ -204,6 +204,11 @@ def protocolo(dir_name,opt,fs,ncycles,num_files,dttemp,ntrans,margen,nbins,kappa
     eEnergDV = np.zeros(ntrans)
     energDVr = np.zeros(ntrans)
     eEnergDVr = np.zeros(ntrans)
+    
+    SDV = np.zeros(ntrans)
+    eSDV = np.zeros(ntrans)
+    SDVr = np.zeros(ntrans)
+    eSDVr = np.zeros(ntrans)
 
     while i < ntrans:
         trans_series = trans_array[:,i]
@@ -217,6 +222,8 @@ def protocolo(dir_name,opt,fs,ncycles,num_files,dttemp,ntrans,margen,nbins,kappa
         eDivDV[i] = eKld
         energDV[i] = energ
         eEnergDV[i] = eEnerg
+        SDV[i] = S
+        eSDV[i] = eS
         
         trans_series = trans_arrayR[:,i]
         hist_trans,bins_trans = histogramas(bins,trans_series)
@@ -228,6 +235,8 @@ def protocolo(dir_name,opt,fs,ncycles,num_files,dttemp,ntrans,margen,nbins,kappa
         eDivDVr[i] = eKld
         energDVr[i] = energ
         eEnergDVr[i] = eEnerg
+        SDVr[i] = S
+        eSDVr[i] = eS
         
         i += 1
 
@@ -250,7 +259,7 @@ def protocolo(dir_name,opt,fs,ncycles,num_files,dttemp,ntrans,margen,nbins,kappa
     KLD_dir = 0.5*(tempRelD - 1 - np.log(tempRelD))
     eKLD_dir = 0.5*np.abs(1-1/tempRelD)*eTempRelD
             
-    return divDV,eDivDV,divDVr,eDivDVr,energDV,eEnergDV,energDVr,eEnergDVr,divD,eDivD,tempRelD,eTempRelD,KLD_dir,eKLD_dir
+    return divDV,eDivDV,divDVr,eDivDVr,energDV,eEnergDV,energDVr,eEnergDVr,SDV,eSDV,SDVr,eSDVr,divD,eDivD,tempRelD,eTempRelD,KLD_dir,eKLD_dir
 
 def dibujos(serieHeat,serieCool,eHeat,eCool,ts,magnitude,opt,fname,N):
     plt.figure()
@@ -307,7 +316,7 @@ nbins = 40
 #### CASO DIRECTO
 print('DIRECTO')
 
-divDV,eDivDV,divDVr,eDivDVr,energDV,eEnergDV,energDVr,eEnergDVr,\
+divDV,eDivDV,divDVr,eDivDVr,energDV,eEnergDV,energDVr,eEnergDVr,SDV,eSDV,SDVr,eSDVr,\
     divD,eDivD,tempRelD,eTempRelD,KLD_dir,eKLD_dir = \
     protocolo(dir_name,'directo',fs,ncycles,num_files,dttemp,ntrans,margen,nbins,kappa,Nc,Neq) 
 
@@ -329,7 +338,7 @@ print('KLD a esas temperaturas (directo) = ' + str(KLD_dir) + '+-' + str(eKLD_di
 print('\n **********\n ********** \n')
 print('INVERSO')
 
-divIV,eDivIV,divIVr,eDivIVr,energIV,eEnergIV,energIVr,eEnergIVr,\
+divIV,eDivIV,divIVr,eDivIVr,energIV,eEnergIV,energIVr,eEnergIVr,SIV,eSIV,SIVr,eSIVr,\
     divI,eDivI,tempRelI,eTempRelI,KLD_inv,eKLD_inv = \
     protocolo(dir_name,'inverso',fs,ncycles,num_files,dttemp,ntrans,margen,nbins,kappa,Nc,Neq)   
 
@@ -406,6 +415,30 @@ fich.write('Time (s)\t\tEner_heat\t\tEner_cool \n')
 for i in range(len(energDVr)):
     fich.write(str(ts[i]) + '     \t\t' + str(energDVr[i]) + '\t' + \
                 str(eEnergDVr[i]) + '\t' +  str(energIVr[i]) + '\t' + str(eEnergIVr[i]))
+    fich.write('\n')
+
+fich.close()
+
+####
+
+fich = open(dir_name + 'S_evol_ordinario.txt','w')
+fich.write('Time (s)\t\tS_heat\t\tS_cool \n')
+    
+for i in range(len(SDV)):
+    fich.write(str(ts[i]) + '     \t\t' + str(SDV[i]) + '\t' + \
+                str(eSDV[i]) + '\t' +  str(SIV[i]) + '\t' + str(eSIV[i]))
+    fich.write('\n')
+
+fich.close()
+
+####
+
+fich = open(dir_name + 'S_evol_reciproco.txt','w')
+fich.write('Time (s)\t\tS_heat\t\tS_cool \n')
+    
+for i in range(len(SDVr)):
+    fich.write(str(ts[i]) + '     \t\t' + str(SDVr[i]) + '\t' + \
+                str(eSDVr[i]) + '\t' +  str(SIVr[i]) + '\t' + str(eSIVr[i]))
     fich.write('\n')
 
 fich.close()
