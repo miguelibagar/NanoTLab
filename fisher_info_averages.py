@@ -30,14 +30,14 @@ def trayectoria(filename,fs,ncycles,num_files,dttemp,ntrans,margen):
     pts_med_transO[1] = pts_med_transO[0] + ntrans
     
     pts_med_transR = np.zeros(2*ncycles)
-    pts_med_transR[0] = int(2*dttemp*fs+6)
+    pts_med_transR[0] = int(2*dttemp*fs+5)
     pts_med_transR[1] = pts_med_transR[0] + ntrans
     
     npts_eq = int(npoints_per_semicycle-npoints_margin-21)
     eq_series = np.zeros(ncycles*num_files*npts_eq)
     
-    trans_array = np.zeros((ntrans,ncycles*num_files))
-    trans_arrayR = np.zeros((ntrans,ncycles*num_files))
+    trans_array = np.zeros((ncycles*num_files,ntrans))
+    trans_arrayR = np.zeros((ncycles*num_files,ntrans))
     
     # Calculadora de puntos a medir
     m = 2
@@ -84,13 +84,13 @@ def trayectoria(filename,fs,ncycles,num_files,dttemp,ntrans,margen):
             i0=int(mm*npts_eq)
             i1=int((mm+1)*npts_eq)
             eq_series[i0:i1] = xsec_eq
-            trans_array[:,mm] = xsec_tr
-            trans_arrayR[:,mm] = xsec_trR
+            trans_array[mm,:] = xsec_tr
+            trans_arrayR[mm,:] = xsec_trR
             
             m=m+2
             mm=mm+1
         
-        print('Archivo ' + str(cFile))
+        
         cFile += 1
         
     return trans_array,trans_arrayR,eq_series
@@ -103,88 +103,7 @@ def histogramas(bins,serie):
 def integrales(mDistr,nbins,ntrans,Dx,fs):
     info = np.zeros(ntrans-2)
     info2 = np.zeros(ntrans-2)
-    info3 = np.zeros(ntrans-2)
-    info4 = np.zeros(ntrans-2)
 
-    n=1
-    while n<ntrans-1:
-        integr = 0
-        
-        xtv = mDistr[n,:]
-        xt0v = mDistr[n-1,:]
-        xt1v = mDistr[n+1,:]
-        
-        m=0
-        while m<nbins-1:
-            xt = xtv[m]
-            xt0 = xt0v[m]
-            xt1 = xt1v[m]
-            
-            if xt == 0:
-                m += 1
-                continue
-            
-            integr = integr + (0.25*Dx*fs*fs)*np.power(xt1-xt0,2)/xt
-            m += 1
-        
-        info[n-1] = integr
-        n += 1
-        
-    n=1
-    while n<ntrans-1:
-        integr2 = 0
-        
-        xtv = mDistr[n,:]
-        xt0v = mDistr[n-1,:]
-        xt1v = mDistr[n+1,:]
-        
-        m=0
-        while m<nbins-1:
-            xt = xtv[m]
-            xt0 = xt0v[m]
-            xt1 = xt1v[m]
-            
-            if xt*xt0*xt1 == 0:
-                m += 1
-                continue
-            
-            logxt0 = np.log(xt0)
-            logxt1 = np.log(xt1)
-            
-            integr2 = integr2 + (0.25*Dx*fs*fs)*xt*np.power(logxt1-logxt0,2)
-            m += 1
-        
-        info2[n-1] = integr2
-        n += 1    
-    
-    n=1
-    while n<ntrans-1:
-        integr3 = 0
-        
-        xtv = mDistr[n,:]
-        xt0v = mDistr[n-1,:]
-        xt1v = mDistr[n+1,:]
-        
-        m=0
-        while m<nbins-1:
-            xt = xtv[m]
-            xt0 = xt0v[m]
-            xt1 = xt1v[m]
-            
-            if xt*xt0*xt1 == 0:
-                m += 1
-                continue
-            
-            logxt0 = np.log(xt0)
-            logxt1 = np.log(xt1)
-            logxt = np.log(xt)
-            
-            integr3 = integr3 - (Dx*fs*fs)*xt*(logxt1-2*logxt+logxt0)
-            m += 1
-        
-        info3[n-1] = integr3
-        n += 1
-    
     n=1
     while n<ntrans-1:
         sum1 = 0
@@ -206,16 +125,44 @@ def integrales(mDistr,nbins,ntrans,Dx,fs):
             
             logxt0 = np.log(xt0)
             logxt1 = np.log(xt1)
-            logxt = np.log(xt)
             
             sum1 = sum1 + (0.25*Dx*fs*fs)*xt*np.power(logxt1-logxt0,2)
             sum2 = sum2 + (0.5*Dx*fs)*xt*(logxt1-logxt0)
             m += 1
         
-        info4[n-1] = sum1 - sum2*sum2
+        info[n-1] = sum1 - sum2*sum2
         n += 1
-    
-    return info,info2,info3,info4
+        
+    n=1
+    while n<ntrans-1:
+        integr2 = 0
+        
+        xtv = mDistr[n,:]
+        xt0v = mDistr[n-1,:]
+        xt1v = mDistr[n+1,:]
+        
+        m=0
+        while m<nbins-1:
+            xt = xtv[m]
+            xt0 = xt0v[m]
+            xt1 = xt1v[m]
+            
+            if xt*xt0*xt1==0:
+                m += 1
+                continue
+            
+            logxt0 = np.log(xt0)
+            logxt1 = np.log(xt1)
+            
+            integr2 = integr2 + Dx*np.power(0.5*fs*(logxt1-logxt0),2)*xt
+            
+            m += 1
+        
+        info2[n-1] = integr2
+        
+        n += 1    
+        
+    return info,info2
 
 
 
@@ -230,6 +177,7 @@ def protocolo(dir_name,opt,fs,ncycles,num_files,dttemp,ntrans,nbins,kappa,Nc,Neq
 
     # Histogramas transitorios
     i=0
+
     
     mDistr = np.zeros((ntrans,nbins-1))
     #eMatriz = np.zeros((ntrans,nbins))
@@ -238,32 +186,26 @@ def protocolo(dir_name,opt,fs,ncycles,num_files,dttemp,ntrans,nbins,kappa,Nc,Neq
     #eMatrizR = np.zeros((ntrans,nbins))
     
     while i < ntrans:
-        trans_series = trans_array[i,:]
+        trans_series = trans_array[:,i]
         hist_trans,bins_trans = histogramas(bins,trans_series)
         #eHist_trans = np.sqrt(hist_trans / (Nc*Dx))
-        
-        #plt.figure()
-        #plt.hist(bins_trans[:-1], bins_trans, weights=hist_trans)
         
         mDistr[i,:] = hist_trans
         #eMatriz[i,:] = eHist_trans
         
-        trans_series = trans_arrayR[i,:]
+        trans_series = trans_arrayR[:,i]
         hist_trans,bins_trans = histogramas(bins,trans_series)
         #eHist_trans = np.sqrt(hist_trans / (Nc*Dx))
-        
-        #plt.figure()
-        #lt.hist(bins_trans[:-1], bins_trans, weights=hist_trans)
         
         mDistrR[i,:] = hist_trans
         #eMatrizR[i,:] = eHist_trans
         
         i += 1
 
-    infoF,infoF2,infoF3,infoF4 = integrales(mDistr,nbins,ntrans,Dx,fs)
-    infoR,infoR2,infoR3,infoR4 = integrales(mDistrR,nbins,ntrans,Dx,fs)
+    infoF,infoF2 = integrales(mDistr,nbins,ntrans,Dx,fs)
+    infoR,infoR2 = integrales(mDistrR,nbins,ntrans,Dx,fs)
             
-    return infoF,infoF2,infoF3,infoF4,infoR,infoR2,infoR3,infoR4
+    return infoF,infoF2,infoR,infoR2
 
 def dibujos(serieHeat,serieCool,eHeat,eCool,ts,magnitude,opt,fname,N):
     plt.figure()
@@ -306,7 +248,7 @@ kappa = 79.40e-6
 
 Nc = ncycles*num_files
 Neq = int(Nc*fs*(dttemp-margen)-21)
-
+nbins = 60
 
 
 ##############################
@@ -316,78 +258,57 @@ Neq = int(Nc*fs*(dttemp-margen)-21)
 print('DIRECTO')
 
 ts = np.arange(ntrans-2)/fs
-tss = np.arange(ntrans)/fs
 
-nbins = 70
+infoF = np.zeros(ntrans-2)
+infoF2 = np.zeros(ntrans-2)
+infoR = np.zeros(ntrans-2)
+infoR2 = np.zeros(ntrans-2)
 
-infoF,infoF2,infoF3,infoF4,infoR,infoR2,infoR3,infoR4 = \
-    protocolo(dir_name,'directo',fs,ncycles,num_files,dttemp,ntrans,nbins,kappa,Nc,Neq,margen)
+infoFI = np.zeros(ntrans-2)
+infoFI2 = np.zeros(ntrans-2)
+infoRI = np.zeros(ntrans-2)
+infoRI2 = np.zeros(ntrans-2)
 
-print('INVERSO')
-
-nbins = 65   
-infoFI,infoFI2,infoFI3,infoFI4,infoRI,infoRI2,infoRI3,infoRI4 = \
-    protocolo(dir_name,'inverso',fs,ncycles,num_files,dttemp,ntrans,nbins,kappa,Nc,Neq,margen)    
-
-plt.figure()
-plt.plot(ts,infoF,'.')
-plt.plot(ts,infoF2,'.')
-plt.plot(ts,infoF3,'.')
-plt.plot(ts,infoF4,'.')
-plt.legend(['Metodo 1','Metodo 2','Metodo 3','Metodo 4'])
-
-plt.figure()
-plt.plot(ts,infoR,'.')
-plt.plot(ts,infoR2,'.')
-plt.plot(ts,infoR3,'.')
-plt.plot(ts,infoR4,'.')
-plt.legend(['Metodo 1','Metodo 2','Metodo 3','Metodo 4'])
-
-plt.figure()
-plt.plot(ts,infoFI,'.')
-plt.plot(ts,infoFI2,'.')
-plt.plot(ts,infoFI3,'.')
-plt.plot(ts,infoFI4,'.')
-plt.legend(['Metodo 1','Metodo 2','Metodo 3','Metodo 4'])
-
-plt.figure()
-plt.plot(ts,infoRI,'.')
-plt.plot(ts,infoRI2,'.')
-plt.plot(ts,infoRI3,'.')
-plt.plot(ts,infoRI4,'.')
-plt.legend(['Metodo 1','Metodo 2','Metodo 3','Metodo 4'])
-
-fich = open('info.out','w')
-
-for i in range(ntrans-2):
-    fich.write(str(ts[i]) + ' ' + str(infoF[i]) + ' ' + str(infoF2[i]) + ' ' + str(infoF3[i]) + ' ' + str(infoF4[i]) + '\n')
+contador = 0
+while contador<num_files:
+    infoFv,infoF2v,infoRv,infoR2v = \
+        protocolo(dir_name,'directo',fs,ncycles,1,dttemp,ntrans,nbins,kappa,Nc,Neq,margen)
+        
+    infoFIv,infoFI2v,infoRIv,infoRI2v = \
+        protocolo(dir_name,'inverso',fs,ncycles,1,dttemp,ntrans,nbins,kappa,Nc,Neq,margen)  
     
-fich.close()
+    infoF = infoF + infoFv
+    infoF2 = infoF2 + infoF2v
+    infoR = infoR + infoRv
+    infoR2 = infoR2 + infoR2v
 
-fich = open('infoR.out','w')
-
-for i in range(ntrans-2):
-    fich.write(str(ts[i]) + ' ' + str(infoR[i]) + ' ' + str(infoR2[i]) + ' ' + str(infoR3[i]) + ' ' + str(infoR4[i]) + '\n')
+    infoFI = infoFI + infoFIv
+    infoFI2 = infoFI2 + infoFI2v
+    infoRI = infoRI + infoRIv
+    infoRI2 = infoRI2 + infoRI2v
     
-fich.close()
-
-fich = open('infoI.out','w')
-
-for i in range(ntrans-2):
-    fich.write(str(ts[i]) + ' ' + str(infoFI[i]) + ' ' + str(infoFI2[i]) + ' ' + str(infoFI3[i]) + ' ' + str(infoFI4[i]) + '\n')
-    
-fich.close()
-
-fich = open('infoRI.out','w')
-
-for i in range(ntrans-2):
-    fich.write(str(ts[i]) + ' ' + str(infoRI[i]) + ' ' + str(infoRI2[i]) + ' ' + str(infoRI3[i]) + ' ' + str(infoRI4[i]) + '\n')
-    
-fich.close()
+    contador += 1
+    print('Archivo ' + str(contador))
     
  
 
-   
+infoF = infoF/num_files
+infoF2 = infoF2/num_files
+infoR = infoR/num_files
+infoR2 = infoR2/num_files
+
+infoFI = infoFI/num_files
+infoFI2 = infoFI2/num_files
+infoRI = infoRI/num_files
+infoRI2 = infoRI2/num_files
+ 
+fich = open('infoAv.out','w')
+
+for i in range(ntrans-2):
+    fich.write(str(ts[i]) + ' ' + str(infoF[i]) + ' ' + str(infoF2[i]) + '\n')
+    
+fich.close()   
+    
 # LF = np.zeros(ntrans-2)
 # LR = np.zeros(ntrans-2)
 # LFI = np.zeros(ntrans-2)
