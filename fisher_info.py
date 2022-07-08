@@ -27,11 +27,11 @@ def trayectoria(filename,fs,ncycles,num_files,dttemp,ntrans,margen):
     pts_med_eq[1] = npoints_per_cycle - 21 #Eq
     
     pts_med_transO = np.zeros(2*ncycles)
-    pts_med_transO[0] = int(dttemp*fs)
+    pts_med_transO[0] = int(dttemp*fs-5)
     pts_med_transO[1] = pts_med_transO[0] + ntrans
     
     pts_med_transR = np.zeros(2*ncycles)
-    pts_med_transR[0] = int(2*dttemp*fs)
+    pts_med_transR[0] = int(2*dttemp*fs-5)
     pts_med_transR[1] = pts_med_transR[0] + ntrans
     
     npts_eq = int(npoints_per_semicycle-npoints_margin-21)
@@ -253,10 +253,20 @@ def protocolo(dir_name,opt,fs,ncycles,num_files,dttemp,ntrans,nbins,kappa,Nc,Neq
     
     media = np.zeros(ntrans)
     mediaR = np.zeros(ntrans)
+    cum3 = np.zeros(ntrans)
+    cum4 = np.zeros(ntrans)
     varianza = np.zeros(ntrans)
     varianzaR = np.zeros(ntrans)
+    cum3R = np.zeros(ntrans)
+    cum4R = np.zeros(ntrans)
+    
+    mediaN = np.zeros(ntrans)
+    varianzaN = np.zeros(ntrans)
+    mediaNR = np.zeros(ntrans)
+    varianzaNR = np.zeros(ntrans)
     
     while i < ntrans:
+        ### CASO DIRECTO
         trans_series = trans_array[i,:]
         
         hist_trans,bins_trans = histogramas(bins,trans_series)
@@ -268,8 +278,18 @@ def protocolo(dir_name,opt,fs,ncycles,num_files,dttemp,ntrans,nbins,kappa,Nc,Neq
         mDistr[i,:] = hist_trans
         #eMatriz[i,:] = eHist_trans
         
+        # Momentos de la posicion
         media[i] = np.mean(trans_series)
         varianza[i] = np.var(trans_series)
+        cum3[i] = np.mean(np.power(trans_series-media,3))
+        cum4[i] = np.mean(np.power(trans_series-media,4)) - 3*varianza[i]
+        
+        # Momentos del ruido
+        noise_series = noise[i,:]
+        mediaN[i] = np.mean(noise_series)
+        varianzaN[i] = np.var(noise_series)        
+        
+        ### CASO RECIPROCO
         
         trans_series = trans_arrayR[i,:]
         
@@ -282,15 +302,23 @@ def protocolo(dir_name,opt,fs,ncycles,num_files,dttemp,ntrans,nbins,kappa,Nc,Neq
         mDistrR[i,:] = hist_trans
         #eMatrizR[i,:] = eHist_trans
         
+        # Momentos de la posicion
         mediaR[i] = np.mean(trans_series)
         varianzaR[i] = np.var(trans_series)
+        cum3R[i] = np.mean(np.power(trans_series-mediaR,3))
+        cum4R[i] = np.mean(np.power(trans_series-mediaR,4)) - 3*varianzaR[i]
+        
+        # Momentos del ruido
+        noise_series = noiseR[i,:]
+        mediaNR[i] = np.mean(noise_series)
+        varianzaNR[i] = np.var(noise_series) 
         
         i += 1
 
     infoF,infoF2,infoF3,infoF4 = integrales(mDistr,nbins,ntrans,Dx,fs)
     infoR,infoR2,infoR3,infoR4 = integrales(mDistrR,nbins,ntrans,Dx,fs)
             
-    return infoF,infoF2,infoF3,infoF4,infoR,infoR2,infoR3,infoR4,noise,noiseR,media,mediaR,varianza,varianzaR
+    return infoF,infoF2,infoF3,infoF4,infoR,infoR2,infoR3,infoR4,mediaN,varianzaN,mediaNR,varianzaNR,media,mediaR,varianza,varianzaR,cum3,cum3R,cum4,cum4R
 
 def dibujos(serieHeat,serieCool,eHeat,eCool,ts,magnitude,opt,fname,N):
     plt.figure()
@@ -314,8 +342,15 @@ def dibujos(serieHeat,serieCool,eHeat,eCool,ts,magnitude,opt,fname,N):
     plt.savefig(dir_name + fname + '-' + opt + 'error.png')
     
 
-##############################
-##############################
+##########################################################################
+##########################################################################
+##########################################################################
+##########################################################################
+######################### FICHERO PRINCIPAL ##############################
+##########################################################################
+##########################################################################
+##########################################################################
+##########################################################################
 
 dir_name = 'C:/lab/t4/'
 
@@ -339,22 +374,114 @@ Neq = int(Nc*fs*(dttemp-margen)-21)
 ##############################
 ##############################
         
-#### CASO DIRECTO
-print('DIRECTO')
+#### HEATING
+print('HEATING')
 
 ts = np.arange(ntrans-2)/fs
 tss = np.arange(ntrans)/fs
 
 nbins = 70
 
-infoF,infoF2,infoF3,infoF4,infoR,infoR2,infoR3,infoR4,noise,noiseR,media,mediaR,varianza,varianzaR = \
+infoF,infoF2,infoF3,infoF4,infoR,infoR2,infoR3,infoR4,mediaN,varianzaN,mediaNR,varianzaNR,media,mediaR,varianza,varianzaR,cum3,cum3R,cum4,cum4R = \
     protocolo(dir_name,'directo',fs,ncycles,num_files,dttemp,ntrans,nbins,kappa,Nc,Neq,margen)
 
-print('INVERSO')
+#### COOLING
+print('COOLING')
 
 nbins = 65   
-infoFI,infoFI2,infoFI3,infoFI4,infoRI,infoRI2,infoRI3,infoRI4,noise,noiseR,mediaI,mediaRI,varianzaI,varianzaRI = \
+infoFI,infoFI2,infoFI3,infoFI4,infoRI,infoRI2,infoRI3,infoRI4,mediaNI,varianzaNI,mediaNRI,varianzaNRI,mediaI,mediaRI,varianzaI,varianzaRI,cum3I,cum3RI,cum4I,cum4RI = \
     protocolo(dir_name,'inverso',fs,ncycles,num_files,dttemp,ntrans,nbins,kappa,Nc,Neq,margen)    
+
+##########################################################################
+##########################################################################
+##########################################################################
+##########################################################################
+############# CUMULANTES DE LA DISTRIBUCION ##############################
+##########################################################################
+##########################################################################
+##########################################################################
+##########################################################################
+ 
+fich = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/cumulantesF.out','w')
+
+for i in range(ntrans):
+    temp = kappa*varianza[i]/kB
+    fich.write(str(tss[i]) + ' ' + str(media[i]) + ' ' + str(temp) + ' ' + str(cum3[i]) + ' ' + str(cum4[i]) + '\n')
+    
+fich.close()
+
+fich = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/cumulantesR.out','w')
+
+for i in range(ntrans):
+    temp = kappa*varianzaR[i]/kB
+    fich.write(str(tss[i]) + ' ' + str(mediaR[i]) + ' ' + str(temp) + ' ' + str(cum3R[i]) + ' ' + str(cum4R[i]) + '\n')
+    
+fich.close()
+
+fich = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/cumulantesI.out','w')
+
+for i in range(ntrans):
+    temp = kappa*varianzaI[i]/kB
+    fich.write(str(tss[i]) + ' ' + str(mediaI[i]) + ' ' + str(temp) + ' ' + str(cum3I[i]) + ' ' + str(cum4I[i]) + '\n')
+    
+fich.close()
+
+fich = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/cumulantesRI.out','w')
+
+for i in range(ntrans):
+    temp = kappa*varianzaRI[i]/kB
+    fich.write(str(tss[i]) + ' ' + str(mediaRI[i]) + ' ' + str(temp) + ' ' + str(cum3RI[i]) + ' ' + str(cum4RI[i]) + '\n')
+    
+fich.close()
+
+
+##########################################################################
+##########################################################################
+##########################################################################
+##########################################################################
+########################## ANALISIS DEL RUIDO ############################
+##########################################################################
+##########################################################################
+##########################################################################
+##########################################################################
+    
+fich = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/ruidoF.out','w')
+
+for i in range(ntrans):
+    fich.write(str(tss[i]) + ' ' + str(mediaN[i]) + ' ' + str(varianzaN[i]) + '\n')
+    
+fich.close()
+
+fich = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/ruidoR.out','w')
+
+for i in range(ntrans):
+    fich.write(str(tss[i]) + ' ' + str(mediaNR[i]) + ' ' + str(varianzaNR[i]) + '\n')
+    
+fich.close()
+
+fich = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/ruidoI.out','w')
+
+for i in range(ntrans):
+    fich.write(str(tss[i]) + ' ' + str(mediaNI[i]) + ' ' + str(varianzaNI[i]) + '\n')
+    
+fich.close()
+
+fich = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/ruidoRI.out','w')
+
+for i in range(ntrans):
+    fich.write(str(tss[i]) + ' ' + str(mediaNRI[i]) + ' ' + str(varianzaNRI[i]) + '\n')
+    
+fich.close()
+
+##########################################################################
+##########################################################################
+##########################################################################
+##########################################################################
+############# FISHER INFORMATION (METODOS NUMERICOS) #####################
+##########################################################################
+##########################################################################
+##########################################################################
+##########################################################################
 
 plt.figure()
 plt.plot(ts,infoF,'.')
@@ -384,50 +511,136 @@ plt.plot(ts,infoRI3,'.')
 plt.plot(ts,infoRI4,'.')
 plt.legend(['Metodo 1','Metodo 2','Metodo 3','Metodo 4'])
 
-fich = open('info_nuevo.out','w')
+fich = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/infoF.out','w')
 
 for i in range(ntrans-2):
     fich.write(str(ts[i]) + ' ' + str(infoF[i]) + ' ' + str(infoF2[i]) + ' ' + str(infoF3[i]) + ' ' + str(infoF4[i]) + '\n')
     
 fich.close()
 
-fich = open('infoR_nuevo.out','w')
+fich = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/infoR.out','w')
 
 for i in range(ntrans-2):
     fich.write(str(ts[i]) + ' ' + str(infoR[i]) + ' ' + str(infoR2[i]) + ' ' + str(infoR3[i]) + ' ' + str(infoR4[i]) + '\n')
     
 fich.close()
 
-fich = open('infoI_nuevo.out','w')
+fich = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/infoI.out','w')
 
 for i in range(ntrans-2):
     fich.write(str(ts[i]) + ' ' + str(infoFI[i]) + ' ' + str(infoFI2[i]) + ' ' + str(infoFI3[i]) + ' ' + str(infoFI4[i]) + '\n')
     
 fich.close()
 
-fich = open('infoRI_nuevo.out','w')
+fich = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/infoRI.out','w')
 
 for i in range(ntrans-2):
     fich.write(str(ts[i]) + ' ' + str(infoRI[i]) + ' ' + str(infoRI2[i]) + ' ' + str(infoRI3[i]) + ' ' + str(infoRI4[i]) + '\n')
     
 fich.close()
     
+
+
+##########################################################################
+##########################################################################
+##########################################################################
+##########################################################################
+############# FISHER INFORMATION CON MEDIAS ##############################
+##########################################################################
+##########################################################################
+##########################################################################
+##########################################################################
+
+dtmediaF = np.zeros(ntrans-2)
+dtvarF = np.zeros(ntrans-2)
+
+dtmediaR = np.zeros(ntrans-2)
+dtvarR = np.zeros(ntrans-2)
+
+dtmediaI = np.zeros(ntrans-2)
+dtvarI = np.zeros(ntrans-2)
+
+dtmediaRI = np.zeros(ntrans-2)
+dtvarRI = np.zeros(ntrans-2)
+
+i = 1
+while i < ntrans-1:
+    xin = media[i-1]
+    xfi = media[i+1]
+    dtmediaF[i-1] = 0.5*fs*(xfi-xin)
+    
+    xin = varianza[i-1]
+    xfi = varianza[i+1]
+    dtvarF[i-1] = 0.5*fs(xfi-xin)
+    
+    ####
+    
+    xin = mediaR[i-1]
+    xfi = mediaR[i+1]
+    dtmediaR[i-1] = 0.5*fs*(xfi-xin)
+    
+    xin = varianzaR[i-1]
+    xfi = varianzaR[i+1]
+    dtvarR[i-1] = 0.5*fs(xfi-xin)
+    
+    ####
+    
+    xin = mediaI[i-1]
+    xfi = mediaI[i+1]
+    dtmediaI[i-1] = 0.5*fs*(xfi-xin)
+    
+    xin = varianzaI[i-1]
+    xfi = varianzaI[i+1]
+    dtvarI[i-1] = 0.5*fs(xfi-xin)
+    
+    ####
+    
+    xin = mediaRI[i-1]
+    xfi = mediaRI[i+1]
+    dtmediaRI[i-1] = 0.5*fs*(xfi-xin)
+    
+    xin = varianzaRI[i-1]
+    xfi = varianzaRI[i+1]
+    dtvarRI[i-1] = 0.5*fs(xfi-xin)
+    
+infoF_medias = np.power(dtmediaF,2)/varianza[1:-1] + \
+    0.5*np.power(dtvarF/varianza[1:-1],2)
+    
+infoR_medias = np.power(dtmediaR,2)/varianzaR[1:-1] + \
+    0.5*np.power(dtvarR/varianzaR[1:-1],2)
+    
+infoI_medias = np.power(dtmediaI,2)/varianzaI[1:-1] + \
+    0.5*np.power(dtvarI/varianzaI[1:-1],2)
+    
+infoRI_medias = np.power(dtmediaRI,2)/varianzaRI[1:-1] + \
+    0.5*np.power(dtvarRI/varianzaRI[1:-1],2)
  
-# mediaN = np.mean(noise,axis=1)
-# varN = np.var(noise,axis=1)
+fichF = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/infoF_medias.out','w')
+fichR = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/infoR_medias.out','w')
+fichI = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/infoI_medias.out','w')
+fichRI = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/infoRI_medias.out','w')
 
-# plt.figure()
-# plt.plot(np.arange(ntrans)/fs,mediaN)
+for i in range(ntrans-2):
+    fichF.write(str(ts[i]) + ' ' + str(infoF2[i]) + ' ' + str(infoF_medias[i]) + '\n')
+    fichR.write(str(ts[i]) + ' ' + str(infoR2[i]) + ' ' + str(infoR_medias[i]) + '\n')
+    fichI.write(str(ts[i]) + ' ' + str(infoFI2[i]) + ' ' + str(infoI_medias[i]) + '\n')
+    fichRI.write(str(ts[i]) + ' ' + str(infoRI2[i]) + ' ' + str(infoRI_medias[i]) + '\n')
+    
+fichF.close()
+fichR.close()
+fichI.close()
+fichRI.close()
 
-# plt.figure()
-# plt.plot(np.arange(ntrans)/fs,varN)
-
-# plt.figure()
-# plt.plot(np.arange(ntrans)/fs,media)
-
-# plt.figure()
-# plt.plot(np.arange(ntrans)/fs,kappa*varianza/kB)
-   
+##########################################################################
+##########################################################################
+##########################################################################
+##########################################################################
+############# LONGITUDES TERMODINAMICAS ##################################
+##########################################################################
+##########################################################################
+##########################################################################
+##########################################################################
+ 
 LF = np.zeros(ntrans-2)
 LR = np.zeros(ntrans-2)
 LFI = np.zeros(ntrans-2)
@@ -452,36 +665,78 @@ while n<ntrans-2:
     
     n +=1
 
-plt.figure()
-plt.plot(ts,ts,'--')
-plt.plot(ts,0.5*np.power(LF,2) / CF,'.')
+fichF = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/maxvelF.out','w')
+fichR = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/maxvelR.out','w')
+fichI = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/maxvelI.out','w')
+fichRI = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/maxvelRI.out','w')
 
-plt.figure()
-plt.plot(ts,ts,'--')
-plt.plot(ts,0.5*np.power(LR,2) / CR,'.')
+for i in range(ntrans-2):
+    xf = 0.5*LF[i]*LF[i]/CF[i]
+    xr = 0.5*LR[i]*LR[i]/CR[i]
+    xi = 0.5*LFI[i]*LFI[i]/CFI[i]
+    xri = 0.5*LRI[i]*LRI[i]/CRI[i]
+    
+    fichF.write(str(ts[i]) + ' ' + str(xf) + '\n')
+    fichR.write(str(ts[i]) + ' ' + str(xr) + '\n')
+    fichI.write(str(ts[i]) + ' ' + str(xi) + '\n')
+    fichRI.write(str(ts[i]) + ' ' + str(xri) + '\n')
+    
+fichF.close()
+fichR.close()
+fichI.close()
+fichRI.close()
 
-plt.figure()
-plt.plot(ts,ts,'--')
-plt.plot(ts,0.5*np.power(LFI,2) / CFI,'.')
+##########################################################################
+##########################################################################
+##########################################################################
+##########################################################################
+############# LONGITUDES TERMODINAMICAS (MEDIAS) #########################
+##########################################################################
+##########################################################################
+##########################################################################
+##########################################################################
+ 
+LF = np.zeros(ntrans-2)
+LR = np.zeros(ntrans-2)
+LFI = np.zeros(ntrans-2)
+LRI = np.zeros(ntrans-2)
 
-plt.figure()
-plt.plot(ts,ts,'--')
-plt.plot(ts,0.5*np.power(LRI,2) / CRI,'.')
+CF = np.zeros(ntrans-2)
+CR = np.zeros(ntrans-2)
+CFI = np.zeros(ntrans-2)
+CRI = np.zeros(ntrans-2)
 
-# plt.figure()
-# plt.plot(ts,LF,'.',ts,LR,'.')
+n=0
+while n<ntrans-2:
+    LF[n] = np.sum(np.sqrt(infoF_medias[0:n])/fs)
+    LR[n] = np.sum(np.sqrt(infoR_medias[0:n])/fs)
+    LFI[n] = np.sum(np.sqrt(infoI_medias[0:n])/fs)
+    LRI[n] = np.sum(np.sqrt(infoRI_medias[0:n])/fs)
+    
+    CF[n] = 0.5*np.sum(infoF_medias[0:n]/fs)
+    CR[n] = 0.5*np.sum(infoR_medias[0:n]/fs)
+    CFI[n] = 0.5*np.sum(infoI_medias[0:n]/fs)
+    CRI[n] = 0.5*np.sum(infoRI_medias[0:n]/fs)
+    
+    n +=1
 
-# plt.figure()
-# plt.plot(ts,LFI,'.',ts,LRI,'.')
+fichF = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/maxvelF_medias.out','w')
+fichR = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/maxvelR_medias.out','w')
+fichI = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/maxvelI_medias.out','w')
+fichRI = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/maxvelRI_medias.out','w')
 
-# plt.figure()
-# plt.plot(ts,infoF2,'.',ts,infoR2,'.')
-# a = 0.182-1
-# w = 2*pi*863.3
-# ysF = 2*w*w*a*a*np.exp(-4*w*ts) / (1+a*np.exp(-2*w*ts))
-# ysR = 2*w*w*a*a*np.exp(-4*w*ts) / (1+a-a*np.exp(-2*w*ts))
-# plt.plot(ts,ysF,'--')
-# plt.plot(ts,ysR,'--')
-
-# plt.figure()
-# plt.plot(ts,infoFI2,'.',ts,infoRI2,'.')
+for i in range(ntrans-2):
+    xf = 0.5*LF[i]*LF[i]/CF[i]
+    xr = 0.5*LR[i]*LR[i]/CR[i]
+    xi = 0.5*LFI[i]*LFI[i]/CFI[i]
+    xri = 0.5*LRI[i]*LRI[i]/CRI[i]
+    
+    fichF.write(str(ts[i]) + ' ' + str(xf) + '\n')
+    fichR.write(str(ts[i]) + ' ' + str(xr) + '\n')
+    fichI.write(str(ts[i]) + ' ' + str(xi) + '\n')
+    fichRI.write(str(ts[i]) + ' ' + str(xri) + '\n')
+    
+fichF.close()
+fichR.close()
+fichI.close()
+fichRI.close()
