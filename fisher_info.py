@@ -27,11 +27,11 @@ def trayectoria(filename,fs,ncycles,num_files,dttemp,ntrans,margen):
     pts_med_eq[1] = npoints_per_cycle - 21 #Eq
     
     pts_med_transO = np.zeros(2*ncycles)
-    pts_med_transO[0] = int(dttemp*fs-5)
+    pts_med_transO[0] = int(dttemp*fs)
     pts_med_transO[1] = pts_med_transO[0] + ntrans
     
     pts_med_transR = np.zeros(2*ncycles)
-    pts_med_transR[0] = int(2*dttemp*fs-5)
+    pts_med_transR[0] = int(2*dttemp*fs)
     pts_med_transR[1] = pts_med_transR[0] + ntrans
     
     npts_eq = int(npoints_per_semicycle-npoints_margin-21)
@@ -281,8 +281,8 @@ def protocolo(dir_name,opt,fs,ncycles,num_files,dttemp,ntrans,nbins,kappa,Nc,Neq
         # Momentos de la posicion
         media[i] = np.mean(trans_series)
         varianza[i] = np.var(trans_series)
-        cum3[i] = np.mean(np.power(trans_series-media,3))
-        cum4[i] = np.mean(np.power(trans_series-media,4)) - 3*varianza[i]
+        cum3[i] = np.mean(np.power(trans_series-media[i],3))
+        cum4[i] = np.mean(np.power(trans_series-media[i],4)) - 3*varianza[i]
         
         # Momentos del ruido
         noise_series = noise[i,:]
@@ -305,8 +305,8 @@ def protocolo(dir_name,opt,fs,ncycles,num_files,dttemp,ntrans,nbins,kappa,Nc,Neq
         # Momentos de la posicion
         mediaR[i] = np.mean(trans_series)
         varianzaR[i] = np.var(trans_series)
-        cum3R[i] = np.mean(np.power(trans_series-mediaR,3))
-        cum4R[i] = np.mean(np.power(trans_series-mediaR,4)) - 3*varianzaR[i]
+        cum3R[i] = np.mean(np.power(trans_series-mediaR[i],3))
+        cum4R[i] = np.mean(np.power(trans_series-mediaR[i],4)) - 3*varianzaR[i]
         
         # Momentos del ruido
         noise_series = noiseR[i,:]
@@ -360,7 +360,7 @@ dttemp = 0.005 # s
 ncycles = 2399
 num_files = 10
 margen = 0.003
-ntrans = 100
+ntrans = 249
 #kappa = 41.64e-6 #tanda7
 #kappa = 14.04e-6
 kappa = 41.64e-6
@@ -571,7 +571,7 @@ while i < ntrans-1:
     
     xin = varianza[i-1]
     xfi = varianza[i+1]
-    dtvarF[i-1] = 0.5*fs(xfi-xin)
+    dtvarF[i-1] = 0.5*fs*(xfi-xin)
     
     ####
     
@@ -581,7 +581,7 @@ while i < ntrans-1:
     
     xin = varianzaR[i-1]
     xfi = varianzaR[i+1]
-    dtvarR[i-1] = 0.5*fs(xfi-xin)
+    dtvarR[i-1] = 0.5*fs*(xfi-xin)
     
     ####
     
@@ -591,7 +591,7 @@ while i < ntrans-1:
     
     xin = varianzaI[i-1]
     xfi = varianzaI[i+1]
-    dtvarI[i-1] = 0.5*fs(xfi-xin)
+    dtvarI[i-1] = 0.5*fs*(xfi-xin)
     
     ####
     
@@ -601,7 +601,9 @@ while i < ntrans-1:
     
     xin = varianzaRI[i-1]
     xfi = varianzaRI[i+1]
-    dtvarRI[i-1] = 0.5*fs(xfi-xin)
+    dtvarRI[i-1] = 0.5*fs*(xfi-xin)
+    
+    i += 1
     
 infoF_medias = np.power(dtmediaF,2)/varianza[1:-1] + \
     0.5*np.power(dtvarF/varianza[1:-1],2)
@@ -686,50 +688,18 @@ fichR.close()
 fichI.close()
 fichRI.close()
 
-##########################################################################
-##########################################################################
-##########################################################################
-##########################################################################
-############# LONGITUDES TERMODINAMICAS (MEDIAS) #########################
-##########################################################################
-##########################################################################
-##########################################################################
-##########################################################################
- 
-LF = np.zeros(ntrans-2)
-LR = np.zeros(ntrans-2)
-LFI = np.zeros(ntrans-2)
-LRI = np.zeros(ntrans-2)
+#############################################
 
-CF = np.zeros(ntrans-2)
-CR = np.zeros(ntrans-2)
-CFI = np.zeros(ntrans-2)
-CRI = np.zeros(ntrans-2)
-
-n=0
-while n<ntrans-2:
-    LF[n] = np.sum(np.sqrt(infoF_medias[0:n])/fs)
-    LR[n] = np.sum(np.sqrt(infoR_medias[0:n])/fs)
-    LFI[n] = np.sum(np.sqrt(infoI_medias[0:n])/fs)
-    LRI[n] = np.sum(np.sqrt(infoRI_medias[0:n])/fs)
-    
-    CF[n] = 0.5*np.sum(infoF_medias[0:n]/fs)
-    CR[n] = 0.5*np.sum(infoR_medias[0:n]/fs)
-    CFI[n] = 0.5*np.sum(infoI_medias[0:n]/fs)
-    CRI[n] = 0.5*np.sum(infoRI_medias[0:n]/fs)
-    
-    n +=1
-
-fichF = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/maxvelF_medias.out','w')
-fichR = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/maxvelR_medias.out','w')
-fichI = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/maxvelI_medias.out','w')
-fichRI = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/maxvelRI_medias.out','w')
+fichF = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/longF.out','w')
+fichR = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/longR.out','w')
+fichI = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/longI.out','w')
+fichRI = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/longRI.out','w')
 
 for i in range(ntrans-2):
-    xf = 0.5*LF[i]*LF[i]/CF[i]
-    xr = 0.5*LR[i]*LR[i]/CR[i]
-    xi = 0.5*LFI[i]*LFI[i]/CFI[i]
-    xri = 0.5*LRI[i]*LRI[i]/CRI[i]
+    xf = LF[i]
+    xr = LR[i]
+    xi = LFI[i]
+    xri = LRI[i]
     
     fichF.write(str(ts[i]) + ' ' + str(xf) + '\n')
     fichR.write(str(ts[i]) + ' ' + str(xr) + '\n')
@@ -740,3 +710,49 @@ fichF.close()
 fichR.close()
 fichI.close()
 fichRI.close()
+
+##########################################################################
+##########################################################################
+##########################################################################
+##########################################################################
+############# LONGITUDES TERMODINAMICAS (MEDIAS) #########################
+##########################################################################
+##########################################################################
+##########################################################################
+##########################################################################
+ 
+LF_medias = np.zeros(ntrans-2)
+LR_medias = np.zeros(ntrans-2)
+LFI_medias = np.zeros(ntrans-2)
+LRI_medias = np.zeros(ntrans-2)
+
+n=0
+while n<ntrans-2:
+    LF_medias[n] = np.sum(np.sqrt(infoF_medias[0:n])/fs)
+    LR_medias[n] = np.sum(np.sqrt(infoR_medias[0:n])/fs)
+    LFI_medias[n] = np.sum(np.sqrt(infoI_medias[0:n])/fs)
+    LRI_medias[n] = np.sum(np.sqrt(infoRI_medias[0:n])/fs)
+    
+    n +=1
+
+
+fichF_medias = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/longF_medias.out','w')
+fichR_medias = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/longR_medias.out','w')
+fichI_medias = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/longI_medias.out','w')
+fichRI_medias = open('C:/Users/Miguel Ibáñez/Desktop/fisher_info/resultados/longRI_medias.out','w')
+
+for i in range(ntrans-2):
+    xf = LF_medias[i]
+    xr = LR_medias[i]
+    xi = LFI_medias[i]
+    xri = LRI_medias[i]
+    
+    fichF_medias.write(str(ts[i]) + ' ' + str(xf) + '\n')
+    fichR_medias.write(str(ts[i]) + ' ' + str(xr) + '\n')
+    fichI_medias.write(str(ts[i]) + ' ' + str(xi) + '\n')
+    fichRI_medias.write(str(ts[i]) + ' ' + str(xri) + '\n')
+    
+fichF_medias.close()
+fichR_medias.close()
+fichI_medias.close()
+fichRI_medias.close()
