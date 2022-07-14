@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 
 #############################################################################
 #############################################################################
@@ -348,7 +349,7 @@ def cumulantes(trans_array,ntrans):
         trans_series = trans_array[:,i]
         
         media[i] = np.mean(trans_series)
-        varianza[i] = np.var(trans_series)
+        varianza[i] = np.var(trans_series,ddof=1)
         cum3[i] = np.mean(np.power(trans_series-media[i],3))
         cum4[i] = np.mean(np.power(trans_series-media[i],4)) - 3*varianza[i]*varianza[i]  
         
@@ -374,7 +375,13 @@ def cum_posicion(dir_name,opt,fs,ncycles,num_files,dttemp,ntrans,margen):
     mediaN,varianzaN,_,_ = cumulantes(noise,ntrans)
     mediaNR,varianzaNR,_,_ = cumulantes(noiseR,ntrans)
     
-    return media,mediaR,varianza,varianzaR,cum3,cum3R,cum4,cum4R,mediaN,mediaNR,varianzaN,varianzaNR
+    ex = 1e-14
+    n = num_files*ncycles
+    
+    eVarianza = (2*ex/(n-1))*np.sqrt((n-1)*varianza + 2*n*np.power(media,2))
+    eVarianzaR = (2*ex/(n-1))*np.sqrt((n-1)*varianzaR + 2*n*np.power(mediaR,2))
+    
+    return media,mediaR,varianza,varianzaR,cum3,cum3R,cum4,cum4R,mediaN,mediaNR,varianzaN,varianzaNR,eVarianza,eVarianzaR,trans_array
 
 #############################################################################
 #############################################################################
@@ -446,6 +453,46 @@ def kld_cota_relax(dir_name,opt,fs,ncycles,num_files,dttemp,ntrans,margen,nbins,
 
     return divDV,eDivDV,divDVr,eDivDVr
 
+def max_vel_rel(dir_name,opt,fs,ncycles,num_files,dttemp,ntrans,margen,nbins,kappa,Nc,Neq):
+    ntrans_cum = 200
+
+    _,_,varianza,varianzaR,_,_,_,_,_,_,_,_,eVar,eVarR,_ =\
+        cum_posicion(dir_name,opt,fs,ncycles,num_files,dttemp,ntrans_cum,margen)
+    
+    ## Bath entropy
+    sigmaf = np.mean(varianza[80:])
+    eSigmaf = np.mean(eVar[80:])
+    sigmafR = np.mean(varianzaR[80:])
+    eSigmafR = np.mean(eVarR[80:])
+
+    dtSbath = -(0.25*fs/sigmaf)*(varianza[2:]-varianza[:-2])
+    edtSbath = (fs*fs/(16*sigmaf*sigmaf))*(np.power(eVar[2:],2) + np.power(eVar[:-2],2)) +\
+        np.power(dtSbath*eSigmaf/sigmaf,2)
+    edtSbath = np.sqrt(edtSbath)
+    
+    dtSbathR = -(0.25*fs/sigmafR)*(varianzaR[2:]-varianzaR[:-2])
+    edtSbathR = (fs*fs/(16*sigmafR*sigmafR))*(np.power(eVarR[2:],2) + np.power(eVarR[:-2],2)) +\
+        np.power(dtSbathR*eSigmafR/sigmafR,2)
+    edtSbathR = np.sqrt(edtSbathR)
+    
+    N = len(dtSbath)
+
+    Sbath = np.zeros(N)
+    eSbath = np.zeros(N)
+    SbathR = np.zeros(N)
+    eSbathR = np.zeros(N)
+    for i in range(N):
+        Sbath[i] = np.sum(dtSbath[0:i])/fs
+        eSbath[i] = np.sqrt(np.sum(np.power(edtSbath[0:i],2)))/fs
+        SbathR[i] = np.sum(dtSbathR[0:i])/fs
+        eSbathR[i] = np.sqrt(np.sum(np.power(edtSbathR[0:i],2)))/fs
+
+    #### Divergencia inversa
+    divD_inv,eDivD_inv,divDr_inv,eDivDr_inv =\
+    kld_cota_relax(dir_name,opt,fs,ncycles,num_files,dttemp,ntrans,margen,nbins,kappa,Nc,Neq)
+    
+    return Sbath,SbathR,divD_inv,eDivD_inv,divDr_inv,eDivDr_inv,eSbath,eSbathR
+
 #############################################################################
 #############################################################################
 #############################################################################
@@ -490,7 +537,7 @@ def dibujos_godec(serieHeat,serieCool,eHeat,eCool,ts,magnitude,opt,fname,N,ymax)
 #############################################################################
 #############################################################################
 
-dir_name = 'C:/lab/t4/'
+dir_name = 'C:/Users/Miguel Ibáñez/Movistar Cloud/lab/t10/'
 
 #### Datos generales
 fs = 50000  # Hz                # Frecuencia de sampleo
@@ -498,7 +545,7 @@ dttemp = 0.005 # s
 ncycles = 2399
 num_files = 10
 margen = 0.003
-ntrans = 65
+ntrans = 100
 kappa = 41.64e-6 #tanda7
 #kappa = 14.04e-6
 #kappa = 79.40e-6
@@ -518,8 +565,45 @@ nbins = 75
 #### HEATING - GODEC
 print('DIRECTO')
 
+opt = 'directo'
+
 divDV,eDivDV,divDVr,eDivDVr,energDV,eEnergDV,energDVr,eEnergDVr,SDV,eSDV,SDVr,eSDVr =\
-    medias_godec(dir_name,'directo',fs,ncycles,num_files,dttemp,ntrans,margen,nbins,kappa,Nc,Neq)
+    medias_godec(dir_name,opt,fs,ncycles,num_files,dttemp,ntrans,margen,nbins,kappa,Nc,Neq)
+
+SbathD,SbathDR,divD_inv,eDivD_inv,divDr_inv,eDivDr_inv,eSbathD,eSbathDR =\
+max_vel_rel(dir_name,opt,fs,ncycles,num_files,dttemp,ntrans,margen,nbins,kappa,Nc,Neq)
+
+mediaD,mediaDR,varianzaD,varianzaDR,cum3D,cum3DR,cum4D,cum4DR,mediaND,mediaNDR,varianzaND,varianzaNDR,_,_,trans_array = \
+cum_posicion(dir_name,opt,fs,ncycles,num_files,dttemp,ntrans,margen)
+
+## System
+SsysD = SDV - SDV[0]
+SsysD = SsysD[1:-1]
+eSsysD = eSDV[0]*eSDV[0] + np.power(SDV,2)
+eSsysD = np.sqrt(eSsysD)
+
+SsysDR = SDVr - SDVr[0]
+SsysDR = SsysDR[1:-1]
+eSsysDR = eSDVr[0]*eSDVr[0] + np.power(SDVr,2)
+eSsysDR = np.sqrt(eSsysDR)
+
+## Total
+entropyD = SsysD + SbathD[0:ntrans-2]
+eEntropyD = np.power(eSsysD[0:ntrans-2],2) + np.power(eSbathD[0:ntrans-2],2)
+eEntropyD = np.sqrt(eEntropyD)
+entropyDR = SsysDR + SbathDR[0:ntrans-2]
+eEntropyDR = np.power(eSsysDR[0:ntrans-2],2) + np.power(eSbathDR[0:ntrans-2],2)
+eEntropyDR = np.sqrt(eEntropyDR)
+
+n=len(entropyD)
+tss = np.arange(n)
+plt.figure()
+ax2 = plt.axes()
+ax2.set_xscale("log")
+ax2.errorbar(tss,entropyD[0:n],yerr=eEntropyD[0:n], fmt = '.r')
+ax2.errorbar(tss,divD_inv[0:n],yerr=eDivD_inv[0:n], fmt = '.b')
+plt.legend(['Entropy','KLD'])
+ax2.set_xlabel("Time (s)")
 
 #############################################################################
 #############################################################################
@@ -528,8 +612,27 @@ divDV,eDivDV,divDVr,eDivDVr,energDV,eEnergDV,energDVr,eEnergDVr,SDV,eSDV,SDVr,eS
 print('\n **********\n ********** \n')
 print('INVERSO')
 
+opt = 'inverso'
+
 divIV,eDivIV,divIVr,eDivIVr,energIV,eEnergIV,energIVr,eEnergIVr,SIV,eSIV,SIVr,eSIVr =\
-    medias_godec(dir_name,'inverso',fs,ncycles,num_files,dttemp,ntrans,margen,nbins,kappa,Nc,Neq)
+    medias_godec(dir_name,opt,fs,ncycles,num_files,dttemp,ntrans,margen,nbins,kappa,Nc,Neq)
+
+SbathI,SbathIR,divI_inv,eDivI_inv,divIr_inv,eDivIr_inv,eSbathI,eSbathIR =\
+max_vel_rel(dir_name,opt,fs,ncycles,num_files,dttemp,ntrans,margen,nbins,kappa,Nc,Neq)
+
+mediaI,mediaIR,varianzaI,varianzaIR,cum3I,cum3IR,cum4I,cum4IR,mediaNI,mediaNIR,varianzaNI,varianzaNIR,_,_,_ = \
+cum_posicion(dir_name,opt,fs,ncycles,num_files,dttemp,ntrans,margen)
+
+## System
+SsysI = SIV - SIV[0]
+SsysI = SsysI[1:-1]
+
+SsysIR = SIVr - SIVr[0]
+SsysIR = SsysIR[1:-1]
+
+## Total
+entropyI = SsysI + SbathI[0:ntrans-2]
+entropyIR = SsysIR + SbathIR[0:ntrans-2]
 
 #############################################################################
 #############################################################################
@@ -545,116 +648,167 @@ n = 60
 dibujos_godec(divDV,divIV,eDivDV,eDivIV,ts,"Kullback-Leibler divergence","ordinary","KLD",ntrans,ymax)
 dibujos_godec(divDVr,divIVr,eDivDVr,eDivIVr,ts,"Kullback-Leibler divergence","reciprocal","KLD",ntrans,ymax)
 
-# Energia
-
-#############################################################################
-#############################################################################
-#############################################################################
-#############################################################################
-#############################################################################
-#############################################################################
-#############################################################################
-#############################################################################
-#############################################################################
-#############################################################################
-#############################################################################
-#############################################################################
-#############################################################################
-
-ntrans_cum = 200
-ts = np.arange(ntrans)/fs
-
-media,mediaR,varianza,varianzaR,cum3,cum3R,cum4,cum4R,mediaN,mediaNR,varianzaN,varianzaNR =\
-    cum_posicion(dir_name,'directo',fs,ncycles,num_files,dttemp,ntrans_cum,margen)
-
-plt.figure()
-plt.plot(ts,varianza)
-
-#############################################################################
-#############################################################################
-############################## COTA RELAX ###################################
-#############################################################################
-#############################################################################
-
-## Bath
-sigmaf = np.mean(varianza[80:])
-
-dtSbath = -(0.25*fs/sigmaf)*(varianza[2:]-varianza[:-2])
-ts = (1 + np.arange(len(dtSbath)))/fs
-
-Sbath = np.zeros(len(dtSbath))
-for i in range(len(dtSbath)):
-    Sbath[i] = np.sum(dtSbath[0:i])/fs
-    
-plt.plot(ts,Sbath)
-
-## System
-Ssys = SDV - SDV[0]
-Ssys = Ssys[1:-1]
-
-## Total
-entropy = Ssys + Sbath[0:ntrans-2]
-plt.figure()
-plt.plot(ts[0:ntrans-2],entropy)
-
-#### Divergencia inversa
-divD_inv,eDivD_inv,divDr_inv,eDivDr_inv =\
-kld_cota_relax(dir_name,'directo',fs,ncycles,num_files,dttemp,ntrans,margen,nbins,kappa,Nc,Neq)
-
-plt.figure()
-plt.plot(ts[0:ntrans-2],entropy,'.')
-plt.plot(ts[0:ntrans-2],divD_inv[0:ntrans-2],'.')
-plt.legend(['Entropia','KLD inversa'])
-
-## Max vel relax
-entropy_mean = entropy/ts[0:ntrans-2]
-plt.figure()
-plt.plot(ts[0:ntrans-2],ts[0:ntrans-2],'--')
-plt.plot(ts[0:ntrans-2],divD_inv[0:ntrans-2]/entropy_mean,'.')
-
 
 # #### PRINTEAR SERIES DE DIV
-# fich = open(dir_name + 'kld_evol_ordinario-means.txt','w')
-# fich.write('Time (s)\t\tDiv_heat\t\tDiv_cool \n')
+# fich = open(dir_name + 'kld_evol_ordinario.txt','w')
+# fich.write('Time (s)\t\tTcold\t\tThot \n')
     
 # for i in range(len(divDV)):
-#     fich.write(str(ts[i]) + '     \t\t' + str(divDV[i]) + '\t' + \
-#                 str(eDivDV[i]) + '\t' +  str(divIV[i]) + '\t' + str(eDivIV[i]))
+#     fich.write(str(divDV[i]) + ',' + \
+#                 str(eDivDV[i]) + ',' +  str(divIV[i]) + ',' + str(eDivIV[i]))
 #     fich.write('\n')
 
 # fich.close()
 
 # ####
 
-# fich = open(dir_name + 'kld_evol_reciproco-means.txt','w')
-# fich.write('Time (s)\t\tDiv_heat\t\tDiv_cool \n')
+# fich = open(dir_name + 'kld_evol_reciproco.txt','w')
+# fich.write('Time (s)\t\tTcold\t\tThot \n')
     
 # for i in range(len(divDVr)):
-#     fich.write(str(ts[i]) + '     \t\t' + str(divDVr[i]) + '\t' + \
-#                 str(eDivDVr[i]) + '\t' +  str(divIVr[i]) + '\t' + str(eDivIVr[i]))
+#     fich.write(str(divDVr[i]) + ',' + \
+#                 str(eDivDVr[i]) + ',' +  str(divIVr[i]) + ',' + str(eDivIVr[i]))
+#     fich.write('\n')
+
+# fich.close()
+
+# #### ENERGIA
+
+# fich = open(dir_name + 'energia_evol_ordinario.txt','w')
+# fich.write('Time (s)\t\tTcold\t\tThot \n')
+    
+# for i in range(len(divDVr)):
+#     fich.write(str(energDV[i]) + ',' + \
+#                 str(eEnergDV[i]) + ',' +  str(energIV[i]) + ',' + str(eEnergIV[i]))
+#     fich.write('\n')
+
+# fich.close()
+
+# ####
+
+# fich = open(dir_name + 'energia_evol_reciproco.txt','w')
+# fich.write('Time (s)\t\tTcold\t\tThot \n')
+    
+# for i in range(len(divDVr)):
+#     fich.write(str(energDVr[i]) + ',' + \
+#                 str(eEnergDVr[i]) + ',' +  str(energIVr[i]) + ',' + str(eEnergIVr[i]))
+#     fich.write('\n')
+
+# fich.close()
+
+# #### ENTROPIA
+
+# fich = open(dir_name + 'entropia_total_ordinario.txt','w')
+# fich.write('Time (s)\t\tTcold\t\tThot \n')
+    
+# for i in range(len(entropyD)):
+#     fich.write(str(entropyD[i]) + ',' + str(divD_inv[i]) + ',' + str(entropyI[i]) + ',' +\
+#                str(divI_inv[i]))
+#     fich.write('\n')
+
+# fich.close()
+
+# ####
+
+# fich = open(dir_name + 'entropia_total_reciproco.txt','w')
+# fich.write('Time (s)\t\tTcold\t\tThot \n')
+    
+# for i in range(len(entropyI)):
+#     fich.write(str(entropyDR[i]) + ',' + str(divDr_inv[i]) + ',' + str(entropyIR[i]) + ',' +\
+#                str(divIr_inv[i]))
 #     fich.write('\n')
 
 # fich.close()
 
 
-# ####
+# #### CUMULANTES
 
+# fich = open(dir_name + 'cumulantes_ordinario.txt','w')
+# fich.write('Time (s)\t\tTcold (1,2,3,4)\t\tTcold (1,2,3,4) \n')
 
-
-# fich = open(dir_name + 'technical_data-means.txt','w')
-
-# fich.write('Stiffness (S.I.) = ' + str(kappa) + '\n'  + '\n')
-
-# fich.write('COLD-WARM PROCESS' + '\n')
-# fich.write('Relative temp. (K) = ' + str(tempRelD) + ' +- ' + str(eTempRelD) + '\n')
-# fich.write('Experimental KLd (a.u.) = '+str(divD)  + '+-' + str(eDivD) + '\n')
-# fich.write('KLd from relative temp. (a.u.) = ' + str(KLD_dir)  + '+-' + str(eKLD_dir) + '\n')
-
-# fich.write('\n')
-
-# fich.write('HOT-WARM PROCESS' + '\n')
-# fich.write('Relative temp. (K) = ' + str(tempRelI) + ' +- ' + str(eTempRelI) + '\n')
-# fich.write('Experimental KLd (a.u.) = '+str(divI)  + '+-' + str(eDivI) + '\n')
-# fich.write('KLd from relative temp. (a.u.) = ' + str(KLD_inv) + '+-' + str(eKLD_inv) + '\n')
-
+# for i in range(ntrans):
+#     fich.write(str(mediaD[i]) + ',' + str(varianzaD[i]) + ',' + str(cum3D[i]) + ',' + str(cum4D[i]) + \
+#                str(mediaI[i]) + ',' + str(varianzaI[i]) + ',' + str(cum3I[i]) + ',' + str(cum4I[i]) + '\n')
+    
 # fich.close()
+
+# fich = open(dir_name + 'cumulantes_reciproco.txt','w')
+# fich.write('Time (s)\t\tTcold (1,2,3,4)\t\tTcold (1,2,3,4) \n')
+
+# for i in range(ntrans):
+#     fich.write(str(mediaDR[i]) + ',' + str(varianzaDR[i]) + ',' + str(cum3DR[i]) + ',' + str(cum4DR[i]) + \
+#                str(mediaIR[i]) + ',' + str(varianzaIR[i]) + ',' + str(cum3IR[i]) + ',' + str(cum4IR[i]) + '\n')
+    
+# fich.close()
+
+
+# ##########################################################################
+# ##########################################################################
+# ##########################################################################
+# ##########################################################################
+# ########################## ANALISIS DEL RUIDO ############################
+# ##########################################################################
+# ##########################################################################
+# ##########################################################################
+# ##########################################################################
+
+
+    
+# fich = open(dir_name + 'ruido_cold.txt','w')
+
+# for i in range(ntrans):
+#     fich.write(str(mediaND[i]) + ',' + str(mediaNDR[i]) + ',' + str(varianzaND[i]) + ',' + str(varianzaNDR[i]) + '\n')
+    
+# fich.close()
+
+
+
+# fich = open(dir_name + 'ruido_hot.txt','w')
+
+# for i in range(ntrans):
+#     fich.write(str(mediaNI[i]) + ',' + str(mediaNIR[i]) + ',' + str(varianzaNI[i]) + ',' + str(varianzaNIR[i]) + '\n')
+    
+# fich.close()
+
+
+
+
+
+# # fich = open(dir_name + 'technical_data-means.txt','w')
+
+# # fich.write('Stiffness (S.I.) = ' + str(kappa) + '\n'  + '\n')
+
+# # fich.write('COLD-WARM PROCESS' + '\n')
+# # fich.write('Relative temp. (K) = ' + str(tempRelD) + ' +- ' + str(eTempRelD) + '\n')
+# # fich.write('Experimental KLd (a.u.) = '+str(divD)  + '+-' + str(eDivD) + '\n')
+# # fich.write('KLd from relative temp. (a.u.) = ' + str(KLD_dir)  + '+-' + str(eKLD_dir) + '\n')
+
+# # fich.write('\n')
+
+# # fich.write('HOT-WARM PROCESS' + '\n')
+# # fich.write('Relative temp. (K) = ' + str(tempRelI) + ' +- ' + str(eTempRelI) + '\n')
+# # fich.write('Experimental KLd (a.u.) = '+str(divI)  + '+-' + str(eDivI) + '\n')
+# # fich.write('KLd from relative temp. (a.u.) = ' + str(KLD_inv) + '+-' + str(eKLD_inv) + '\n')
+
+# # fich.close()
+
+# ################
+
+# xmax = trans_array.max()
+# xmin = trans_array.min()
+# bins = np.linspace(xmin-0.05e-8,xmax+0.05e-8,num=nbins)
+
+
+
+
+
+
+
+# for i in range(ntrans):
+#     xs = trans_array[:,i]
+#     xs = xs - np.mean(xs)
+#     hist,_ = histogramas(bins,trans_array[:,i])
+#     plt.ylim(0,2.5e7)
+#     plt.figure()
+#     plt.hist(bins[:-1], bins, weights=hist,density=True)
+#     plt.savefig(str(i) + '.png')
