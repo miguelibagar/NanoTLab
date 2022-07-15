@@ -144,6 +144,7 @@ def kullback_leibler(distr1,eDistr1,distrRef,eDistrRef,nbins,Dx):
     eKld = 0
     energ = 0
     eEnerg = 0
+    eS = 0
     
     m=0
     while m<nbins-1:
@@ -163,13 +164,14 @@ def kullback_leibler(distr1,eDistr1,distrRef,eDistrRef,nbins,Dx):
         energ = energ - Dx*xt*np.log(xeq) # NEW!
         eEnerg = eEnerg + np.power(ext*(np.log(xeq)),2) + \
                    np.power(exeq*xt/xeq,2)
+        eS = eS + np.power((1 + np.log(xt))*ext,2)
         m += 1
     
     S = energ - kld
     
     eKld = np.sqrt(eKld)*Dx
     eEnerg = np.sqrt(eEnerg)*Dx
-    eS = eEnerg + eKld
+    eS = np.sqrt(eS)*Dx
     
     return kld,eKld,energ,eEnerg,S,eS
 
@@ -537,7 +539,7 @@ def dibujos_godec(serieHeat,serieCool,eHeat,eCool,ts,magnitude,opt,fname,N,ymax)
 #############################################################################
 #############################################################################
 
-dir_name = 'C:/Users/Miguel Ibáñez/Movistar Cloud/lab/t10/'
+dir_name = 'C:/Users/Miguel Ibáñez/Movistar Cloud/lab/t4/'
 
 #### Datos generales
 fs = 50000  # Hz                # Frecuencia de sampleo
@@ -579,12 +581,12 @@ cum_posicion(dir_name,opt,fs,ncycles,num_files,dttemp,ntrans,margen)
 ## System
 SsysD = SDV - SDV[0]
 SsysD = SsysD[1:-1]
-eSsysD = eSDV[0]*eSDV[0] + np.power(SDV,2)
+eSsysD = eSDV[0]*eSDV[0] + np.power(eSDV,2)
 eSsysD = np.sqrt(eSsysD)
 
 SsysDR = SDVr - SDVr[0]
 SsysDR = SsysDR[1:-1]
-eSsysDR = eSDVr[0]*eSDVr[0] + np.power(SDVr,2)
+eSsysDR = eSDVr[0]*eSDVr[0] + np.power(eSDVr,2)
 eSsysDR = np.sqrt(eSsysDR)
 
 ## Total
@@ -603,6 +605,13 @@ ax2.set_xscale("log")
 ax2.errorbar(tss,entropyD[0:n],yerr=eEntropyD[0:n], fmt = '.r')
 ax2.errorbar(tss,divD_inv[0:n],yerr=eDivD_inv[0:n], fmt = '.b')
 plt.legend(['Entropy','KLD'])
+ax2.set_xlabel("Time (s)")
+
+tss = np.arange(len(varianza))
+plt.figure()
+ax2 = plt.axes()
+ax2.set_xscale("log")
+ax2.errorbar(tss,varianza,yerr=eVarianza, fmt = '.r')
 ax2.set_xlabel("Time (s)")
 
 #############################################################################
